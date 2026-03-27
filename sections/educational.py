@@ -102,58 +102,57 @@ digraph vectorless {
     st.divider()
 
     # ── Problems ─────────────────────────────────────────────────────────────
-    st.subheader("⚠️ Problemas del RAG Tradicional")
+    st.subheader("Problemas del RAG Tradicional")
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.error("""
-**Chunking artificial**
+    CARD_STYLE = (
+        "background-color:#1e2130;"
+        "border:1px solid #3b4166;"
+        "border-radius:12px;"
+        "padding:1.2rem 1.4rem;"
+        "height:100%;"
+    )
+    ICON_STYLE  = "font-size:1.6rem;margin-bottom:0.4rem;"
+    TITLE_STYLE = "margin:0.2rem 0 0.5rem 0;color:#c9d1f5;font-size:0.96rem;font-weight:600;"
+    DESC_STYLE  = "margin:0;color:#8b95bf;font-size:0.85rem;line-height:1.6;"
 
-Fragmentar el texto en pedazos de tamaño fijo rompe el contexto
-natural del documento. Una respuesta que abarca varias páginas
-puede quedar partida en chunks que nunca se recuperan juntos.
-        """)
-    with c2:
-        st.error("""
-**Similitud ≠ Relevancia**
+    def card(icon, title, desc):
+        return (
+            f'<div style="{CARD_STYLE}">'
+            f'  <div style="{ICON_STYLE}">{icon}</div>'
+            f'  <p style="{TITLE_STYLE}">{title}</p>'
+            f'  <p style="{DESC_STYLE}">{desc}</p>'
+            f'</div>'
+        )
 
-La búsqueda vectorial ("vibe retrieval") encuentra texto
-*semánticamente parecido* a la query, no necesariamente el texto
-que *lógicamente* contiene la respuesta.
-        """)
-    with c3:
-        st.error("""
-**Opacidad total**
+    problems = [
+        ("🔪", "Chunking artificial",
+         "Fragmentar el texto en pedazos de tamaño fijo rompe el contexto natural. "
+         "Una respuesta que abarca varias páginas puede quedar partida en chunks que nunca se recuperan juntos."),
+        ("🎯", "Similitud ≠ Relevancia",
+         "La búsqueda vectorial encuentra texto semánticamente parecido, no necesariamente el que "
+         "lógicamente contiene la respuesta. Alta similitud no garantiza alta relevancia."),
+        ("🕳️", "Opacidad total",
+         "No hay forma de saber por qué se recuperaron ciertos chunks. "
+         "Es una caja negra — difícil de debuggear, auditar o explicar ante un usuario final."),
+        ("🏗️", "Infraestructura compleja",
+         "Requiere modelo de embeddings + vector database + pipeline de indexación. "
+         "Alto costo operativo, más dependencias y más superficie de fallo."),
+        ("📄", "Degradación en docs estructurados",
+         "En contratos, reportes financieros y manuales técnicos el RAG vectorial pierde "
+         "la información jerárquica clave al fragmentar el texto."),
+        ("🔄", "Re-indexación costosa",
+         "Cualquier actualización del documento requiere re-generar todos los embeddings "
+         "y actualizar la base de datos vectorial."),
+    ]
 
-No hay forma de saber por qué se recuperaron ciertos chunks.
-La búsqueda vectorial es una caja negra — difícil de debuggear,
-auditar o explicar ante un usuario final.
-        """)
+    row1 = st.columns(3)
+    row2 = st.columns(3)
+    for i, (icon, title, desc) in enumerate(problems):
+        col = row1[i] if i < 3 else row2[i - 3]
+        with col:
+            st.markdown(card(icon, title, desc), unsafe_allow_html=True)
 
-    c4, c5, c6 = st.columns(3)
-    with c4:
-        st.error("""
-**Infraestructura compleja**
-
-Requiere: modelo de embeddings + vector database + pipeline de
-indexación. Alto costo operativo, más dependencias, más superficie
-de fallo.
-        """)
-    with c5:
-        st.error("""
-**Degradación en docs estructurados**
-
-En contratos, reportes financieros y manuales técnicos — donde la
-jerarquía y estructura importan — el RAG vectorial pierde
-información contextual clave al fragmentar.
-        """)
-    with c6:
-        st.error("""
-**Re-indexación costosa**
-
-Cualquier actualización del documento requiere re-generar todos
-los embeddings y actualizar la base de datos vectorial.
-        """)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     st.divider()
 
