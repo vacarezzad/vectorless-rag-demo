@@ -71,41 +71,34 @@ Retorná SOLO el JSON array."""
     st.markdown(
         "El LLM recibe el árbol **sin el texto completo** (solo títulos + resúmenes) "
         "y razona cuáles nodos son relevantes a la query. "
-        "El resultado incluye el razonamiento paso a paso — completamente trazable."
+        "El resultado incluye el razonamiento paso a paso — completamente trazable. "
+        "**Prompt fiel al repositorio oficial [VectifyAI/PageIndex](https://github.com/VectifyAI/PageIndex).**"
     )
     st.code(
         '''
 def retrieve_nodes(query: str, tree_nodes: list[dict], llm: LLMClient) -> dict:
     """
-    El LLM razona sobre el árbol del documento (solo títulos + resúmenes,
-    SIN el texto completo) y selecciona los nodos relevantes.
+    El LLM examina el árbol (solo node_id + title + summary, SIN texto completo)
+    y devuelve los nodos relevantes con razonamiento explícito.
 
-    Key insight: el LLM no necesita ver el texto para saber QUÉ sección
-    es relevante — el resumen es suficiente para razonar.
+    Fuente: prompt oficial de VectifyAI/PageIndex.
     """
-    # Solo enviamos estructura, NO el texto completo
-    tree_slim = [
-        {
-            "node_id":  n["node_id"],
-            "title":    n["title"],
-            "summary":  n["summary"],   # ~1-2 oraciones
-            "pages":    f"{n[\'start_page\']}-{n[\'end_page\']}",
-        }
+    # Eliminamos el texto — solo enviamos estructura al LLM
+    tree_without_text = [
+        {"node_id": n["node_id"], "title": n["title"], "summary": n["summary"]}
         for n in tree_nodes
     ]
 
-    prompt = f"""Sos un experto analizando un documento.
+    # Prompt oficial de PageIndex
+    prompt = f"""You are given a question and a tree structure of a document.
+Each node contains a node id, node title, and a corresponding summary.
+Your task is to find all nodes that are likely to contain the answer to the question.
 
-Pregunta del usuario: {query}
+Question: {query}
+Document tree structure: {json.dumps(tree_without_text, indent=2)}
 
-Árbol del documento (solo títulos y resúmenes):
-{json.dumps(tree_slim, indent=2)}
-
-Razoná qué secciones contienen la respuesta y devolvé:
-{{
-    "thinking": "razonamiento paso a paso...",
-    "node_ids": ["001", "003"]
-}}"""
+Please reply in the following JSON format:
+{{"thinking": "<your step-by-step reasoning>", "node_list": ["node_id_1", "node_id_2"]}}"""
 
     response = llm.call(prompt)
     return json.loads(response)
@@ -113,11 +106,11 @@ Razoná qué secciones contienen la respuesta y devolvé:
 
 # Ejemplo de resultado:
 # {
-#   "thinking": "La pregunta es sobre el marco regulatorio.
-#                La sección '004' cubre exactamente ese tema según su resumen.
-#                La sección '004-2' profundiza en los artículos específicos.
-#                Las demás secciones tratan temas no relacionados.",
-#   "node_ids": ["004", "004-2"]
+#   "thinking": "The question is about regulatory compliance.
+#                Node '004' covers exactly that topic per its summary.
+#                Node '004-2' dives into the specific articles.
+#                Other sections are unrelated.",
+#   "node_list": ["004", "004-2"]     # <-- campo oficial: node_list
 # }
 ''',
         language="python",
@@ -184,7 +177,7 @@ def vectorless_rag(pdf_path: str, query: str, llm: LLMClient) -> dict:
     retrieval = retrieve_nodes(query, tree, llm) # 3. Query → nodos relevantes
 
     context, sources = get_context_from_nodes(  # 4. Nodos → texto
-        retrieval["node_ids"], tree, pages
+        retrieval["node_list"], tree, pages      # campo oficial: node_list
     )
     answer = generate_answer(query, context, sources, llm)  # 5. → respuesta
 

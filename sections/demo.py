@@ -186,9 +186,9 @@ def render() -> None:
                             st.markdown(
                                 f"- **{s['title']}** — páginas {s['start_page']}–{s['end_page']}"
                             )
-                if msg.get("node_ids"):
+                if msg.get("node_list"):
                     with st.expander("🔍 Nodos seleccionados"):
-                        st.code(str(msg["node_ids"]))
+                        st.code(str(msg["node_list"]))
 
     # New message
     query = st.chat_input("Hacé una pregunta sobre el documento…")
@@ -204,9 +204,8 @@ def render() -> None:
                     retrieval = retrieve_nodes(query, tree, llm)
 
                 with st.spinner("Extrayendo contexto y generando respuesta…"):
-                    context, sources = get_context_from_nodes(
-                        retrieval.get("node_ids", []), tree, pages
-                    )
+                    node_list = retrieval.get("node_list", [])
+                    context, sources = get_context_from_nodes(node_list, tree, pages)
                     answer = generate_answer(query, context, sources, llm)
 
                 st.markdown(answer)
@@ -220,8 +219,8 @@ def render() -> None:
                             f"- **{s['title']}** — páginas {s['start_page']}–{s['end_page']}"
                         )
 
-                with st.expander("🔍 Nodos seleccionados"):
-                    st.code(str(retrieval.get("node_ids", [])))
+                with st.expander("🔍 Nodos seleccionados (node_list)"):
+                    st.code(str(node_list))
 
                 st.session_state["chat_history"].append(
                     {
@@ -229,7 +228,7 @@ def render() -> None:
                         "content": answer,
                         "thinking": retrieval.get("thinking", ""),
                         "sources": sources,
-                        "node_ids": retrieval.get("node_ids", []),
+                        "node_list": node_list,
                     }
                 )
 

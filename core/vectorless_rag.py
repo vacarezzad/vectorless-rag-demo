@@ -89,38 +89,31 @@ def retrieve_nodes(query: str, tree_nodes: List[Dict], llm: LLMClient) -> Dict:
     Ask the LLM to reason over the tree (titles + summaries only, NO full text)
     and identify which nodes are most likely to contain the answer.
 
-    This is the core insight of vectorless RAG: the LLM uses reasoning
-    instead of vector similarity to determine relevance.
+    Prompt structure matches the official PageIndex implementation:
+    https://github.com/VectifyAI/PageIndex
+
+    Returns a dict with "thinking" (step-by-step reasoning) and "node_list"
+    (list of relevant node_ids) — fully traceable, no black-box similarity.
     """
-    tree_slim = [
+    # Strip full text — only send structure to the LLM
+    tree_without_text = [
         {
             "node_id": n["node_id"],
             "title": n["title"],
             "summary": n["summary"],
-            "pages": f"{n['start_page']}-{n['end_page']}",
-            "level": n.get("level", 1),
         }
         for n in tree_nodes
     ]
 
-    prompt = f"""Sos un experto analizando un documento para encontrar las secciones relevantes a una pregunta.
+    prompt = f"""You are given a question and a tree structure of a document.
+Each node contains a node id, node title, and a corresponding summary.
+Your task is to find all nodes that are likely to contain the answer to the question.
 
-Pregunta: {query}
+Question: {query}
+Document tree structure: {json.dumps(tree_without_text, indent=2, ensure_ascii=False)}
 
-Árbol del documento (solo títulos y resúmenes — sin texto completo):
-{json.dumps(tree_slim, indent=2, ensure_ascii=False)}
-
-Tarea:
-1. Razoná paso a paso qué secciones probablemente contienen la respuesta
-2. Seleccioná los node_ids de las secciones más relevantes (máximo 5)
-
-Importante: elegí solo los nodos que realmente aporten información — menos es más.
-
-Respondé SOLO con este JSON (sin code fences):
-{{
-    "thinking": "Tu razonamiento paso a paso, explicando por qué cada sección elegida es relevante",
-    "node_ids": ["node_id_1", "node_id_2"]
-}}"""
+Please reply in the following JSON format:
+{{"thinking": "<your step-by-step reasoning>", "node_list": ["node_id_1", "node_id_2"]}}"""
 
     response = llm.call(prompt)
     return _extract_json(response)
@@ -129,7 +122,7 @@ Respondé SOLO con este JSON (sin code fences):
 # ── Step 3: Context extraction ────────────────────────────────────────────────
 
 def get_context_from_nodes(
-    node_ids: List[str],
+    node_list: List[str],
     tree_nodes: List[Dict],
     pages: List[Dict],
 ) -> Tuple[str, List[Dict]]:
@@ -140,7 +133,7 @@ def get_context_from_nodes(
     context_parts = []
     sources = []
 
-    for nid in node_ids:
+    for nid in node_list:
         node = node_map.get(nid)
         if not node:
             continue
